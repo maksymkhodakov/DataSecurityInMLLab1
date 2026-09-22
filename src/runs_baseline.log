@@ -1,0 +1,52 @@
+Using device: mps
+Classes (10): ['n02056570', 'n02085936', 'n02128757', 'n02690373', 'n02692877', 'n03095699', 'n04254680', 'n04285008', 'n04467665', 'n07747607']
+Train batches: 345, Val batches: 61
+epoch 1 step 50/345 loss 0.3776
+epoch 1 step 100/345 loss 0.2975
+epoch 1 step 150/345 loss 0.2666
+epoch 1 step 200/345 loss 0.2397
+epoch 1 step 250/345 loss 0.2242
+epoch 1 step 300/345 loss 0.2119
+[epoch 1] loss=0.2077 clean_acc=0.9190 fgsm_acc(eps=0.031)=0.1364 time=257.4s
+  -> saved new best model (score=0.5277)
+epoch 2 step 50/345 loss 0.1069
+epoch 2 step 100/345 loss 0.0936
+epoch 2 step 150/345 loss 0.0978
+epoch 2 step 200/345 loss 0.1003
+epoch 2 step 250/345 loss 0.1127
+epoch 2 step 300/345 loss 0.1152
+[epoch 2] loss=0.1142 clean_acc=0.9349 fgsm_acc(eps=0.031)=0.1692 time=255.1s
+  -> saved new best model (score=0.5521)
+epoch 3 step 50/345 loss 0.0641
+epoch 3 step 100/345 loss 0.0731
+epoch 3 step 150/345 loss 0.0706
+epoch 3 step 200/345 loss 0.0674
+epoch 3 step 250/345 loss 0.0655
+epoch 3 step 300/345 loss 0.0642
+[epoch 3] loss=0.0634 clean_acc=0.9631 fgsm_acc(eps=0.031)=0.1564 time=253.2s
+  -> saved new best model (score=0.5597)
+epoch 4 step 50/345 loss 0.0316
+epoch 4 step 100/345 loss 0.0312
+epoch 4 step 150/345 loss 0.0272
+epoch 4 step 200/345 loss 0.0275
+epoch 4 step 250/345 loss 0.0270
+epoch 4 step 300/345 loss 0.0279
+[epoch 4] loss=0.0282 clean_acc=0.9636 fgsm_acc(eps=0.031)=0.2287 time=258.3s
+  -> saved new best model (score=0.5962)
+epoch 5 step 50/345 loss 0.0141
+epoch 5 step 100/345 loss 0.0159
+epoch 5 step 150/345 loss 0.0142
+epoch 5 step 200/345 loss 0.0130
+epoch 5 step 250/345 loss 0.0133
+epoch 5 step 300/345 loss 0.0124
+[epoch 5] loss=0.0127 clean_acc=0.9754 fgsm_acc(eps=0.031)=0.2631 time=258.0s
+  -> saved new best model (score=0.6192)
+epoch 6 step 50/345 loss 0.0042
+epoch 6 step 100/345 loss 0.0045
+epoch 6 step 150/345 loss 0.0062
+epoch 6 step 200/345 loss 0.0063
+epoch 6 step 250/345 loss 0.0069
+epoch 6 step 300/345 loss 0.0065
+[epoch 6] loss=0.0064 clean_acc=0.9764 fgsm_acc(eps=0.031)=0.2713 time=259.6s
+  -> saved new best model (score=0.6238)
+Training complete.

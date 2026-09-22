@@ -1,0 +1,50 @@
+Using device: mps
+Classes (10): ['n02056570', 'n02085936', 'n02128757', 'n02690373', 'n02692877', 'n03095699', 'n04254680', 'n04285008', 'n04467665', 'n07747607']
+Train batches: 345, Val batches: 61
+epoch 1 step 50/345 loss 0.9843
+epoch 1 step 100/345 loss 0.8192
+epoch 1 step 150/345 loss 0.7403
+epoch 1 step 200/345 loss 0.6962
+epoch 1 step 250/345 loss 0.6621
+epoch 1 step 300/345 loss 0.6282
+[epoch 1] loss=0.6096 clean_acc=0.9128 fgsm_acc(eps=0.031)=0.5497 time=613.5s
+  -> saved new best model (score=0.7313)
+epoch 2 step 50/345 loss 0.3789
+epoch 2 step 100/345 loss 0.3695
+epoch 2 step 150/345 loss 0.3633
+epoch 2 step 200/345 loss 0.3638
+epoch 2 step 250/345 loss 0.3699
+epoch 2 step 300/345 loss 0.3691
+[epoch 2] loss=0.3662 clean_acc=0.9303 fgsm_acc(eps=0.031)=0.6287 time=641.8s
+  -> saved new best model (score=0.7795)
+epoch 3 step 50/345 loss 0.2398
+epoch 3 step 100/345 loss 0.2532
+epoch 3 step 150/345 loss 0.2547
+epoch 3 step 200/345 loss 0.2543
+epoch 3 step 250/345 loss 0.2536
+epoch 3 step 300/345 loss 0.2533
+[epoch 3] loss=0.2547 clean_acc=0.9390 fgsm_acc(eps=0.031)=0.6092 time=687.2s
+epoch 4 step 50/345 loss 0.1873
+epoch 4 step 100/345 loss 0.1769
+epoch 4 step 150/345 loss 0.1697
+epoch 4 step 200/345 loss 0.1690
+epoch 4 step 250/345 loss 0.1697
+epoch 4 step 300/345 loss 0.1725
+[epoch 4] loss=0.1702 clean_acc=0.9431 fgsm_acc(eps=0.031)=0.6421 time=681.9s
+  -> saved new best model (score=0.7926)
+epoch 5 step 50/345 loss 0.1047
+epoch 5 step 100/345 loss 0.1012
+epoch 5 step 150/345 loss 0.1047
+epoch 5 step 200/345 loss 0.1043
+epoch 5 step 250/345 loss 0.1044
+epoch 5 step 300/345 loss 0.1024
+[epoch 5] loss=0.1013 clean_acc=0.9518 fgsm_acc(eps=0.031)=0.6815 time=688.7s
+  -> saved new best model (score=0.8167)
+epoch 6 step 50/345 loss 0.0697
+epoch 6 step 100/345 loss 0.0683
+epoch 6 step 150/345 loss 0.0726
+epoch 6 step 200/345 loss 0.0705
+epoch 6 step 250/345 loss 0.0678
+epoch 6 step 300/345 loss 0.0725
+[epoch 6] loss=0.0712 clean_acc=0.9492 fgsm_acc(eps=0.031)=0.6800 time=674.9s
+Training complete.

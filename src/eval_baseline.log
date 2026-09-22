@@ -1,0 +1,22 @@
+Using device: mps
+Clean accuracy: 0.9764
+Gaussian noise accuracy (p=1.0, sigma~U(0.01,0.08), avg of 3 trials): 0.9347
+FGSM eps=0.0000 (0.0/255) -> accuracy=0.9764
+FGSM eps=0.0039 (1.0/255) -> accuracy=0.6456
+FGSM eps=0.0078 (2.0/255) -> accuracy=0.4533
+FGSM eps=0.0157 (4.0/255) -> accuracy=0.3195
+FGSM eps=0.0235 (6.0/255) -> accuracy=0.2826
+FGSM eps=0.0314 (8.0/255) -> accuracy=0.2713
+FGSM eps=0.0471 (12.0/255) -> accuracy=0.2774
+FGSM eps=0.0627 (16.0/255) -> accuracy=0.2779
+FGSM eps=0.0941 (24.0/255) -> accuracy=0.2559
+FGSM eps=0.1255 (32.0/255) -> accuracy=0.2200
+FGSM eps=0.1882 (48.0/255) -> accuracy=0.1390
+FGSM eps=0.2510 (64.0/255) -> accuracy=0.1118
+FGSM eps=0.3765 (96.0/255) -> accuracy=0.1051
+FGSM eps=0.5020 (128.0/255) -> accuracy=0.1082
+
+Eps where accuracy drops below 50% of clean accuracy: 0.00784313725490196
+Eps where accuracy collapses to ~random guessing (0.100): 0.18823529411764706
+Saved plot to runs/baseline/fgsm_sweep.png
+Saved results to runs/baseline/eval_results.json
