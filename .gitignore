@@ -1,0 +1,8 @@
+.idea
+.venv311/
+.venv/
+__pycache__/
+*.pyc
+*.pt
+src/runs/
+/imagenet-10/
