@@ -26,17 +26,21 @@ class Normalize(nn.Module):
 
     Реалізовано як nn.Module (а не як torchvision-transform), щоб цей крок
     автоматично потрапляв у граф обчислень і differentiable-атаки (FGSM)
-    могли коректно рахувати градієнт crossентропії відносно "сирого" входу
+    могли коректно рахувати градієнт крос-ентропії відносно "сирого" входу
     x (у [0,1]), а не відносно вже нормалізованого тензора.
     """
     def __init__(self, mean, std):
         super().__init__()
         # register_buffer — не параметр (не оновлюється оптимізатором), але
         # автоматично переноситься на потрібний пристрій разом з .to(device).
+        # Форма (1, 3, 1, 1) дозволяє broadcasting на батч (N, 3, H, W):
+        # кожен канал (R, G, B) нормалізується своїм mean/std.
         self.register_buffer("mean", torch.tensor(mean).view(1, 3, 1, 1))
         self.register_buffer("std", torch.tensor(std).view(1, 3, 1, 1))
 
     def forward(self, x):
+        # x: (N, 3, H, W) у [0, 1]  ->  (N, 3, H, W) приблизно з нульовим
+        # середнім і одиничною дисперсією по кожному каналу (як очікує ResNet).
         return (x - self.mean) / self.std
 
 
@@ -59,6 +63,9 @@ def build_model(num_classes=10, pretrained=True):
     # з fine-tuning решти backbone.
     backbone.fc = nn.Linear(backbone.fc.in_features, num_classes)
 
+    # nn.Sequential послідовно застосовує шари: спочатку нормалізація,
+    # потім ResNet-18. Результат model(x) — логіти shape (N, num_classes)
+    # (ще не ймовірності; softmax застосовується всередині cross_entropy).
     model = nn.Sequential(
         Normalize(IMAGENET_MEAN, IMAGENET_STD),
         backbone,

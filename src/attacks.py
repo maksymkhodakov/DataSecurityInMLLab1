@@ -41,14 +41,17 @@ def fgsm_attack(model, x, y, eps, criterion=None):
     у напрямку, що збільшує loss — тому береться лише ЗНАК градієнта.
     """
     if eps == 0:
-        return x.clone()
+        return x.clone()  # вироджений випадок: атаки немає, градієнт не рахуємо
     criterion = criterion or F.cross_entropy
 
     # requires_grad_(True): потрібно порахувати d(loss)/d(x), а не d(loss)/d(ваги)
     x_adv = x.clone().detach().requires_grad_(True)
     logits = model(x_adv)
     loss = criterion(logits, y)
-    grad = torch.autograd.grad(loss, x_adv)[0]
+    # torch.autograd.grad рахує градієнт ЛИШЕ відносно x_adv і НЕ записує
+    # його в .grad параметрів моделі — тобто побудова атаки не "забруднює"
+    # градієнти ваг, які потім використовує optimizer у train.py.
+    grad = torch.autograd.grad(loss, x_adv)[0]  # shape як у x: (N, 3, H, W)
 
     # Крок у напрямку ЗРОСТАННЯ loss (тому +, а не -, як при звичайному
     # градієнтному спуску по вагах) — модель повинна помилятись сильніше.
@@ -72,21 +75,30 @@ def gaussian_noise_attack(x, sigma_low=0.01, sigma_high=0.08, p=0.5, generator=N
 
     Це НЕ adversarial атака (шум не залежить від градієнта моделі й не
     "цілиться" в її слабкі місця) — це стохастичне спотворення, що імітує
-    реальний шум сенсора/каналу передачі, тому й trainable-параметрів чи
-    доступу до model тут не потрібно (на відміну від fgsm_attack).
+    реальний шум сенсора/каналу передачі, тому доступ до model тут не
+    потрібен (на відміну від fgsm_attack).
+
+    Параметр generator наразі не використовується (випадковість береться з
+    глобального генератора torch) — лишений для сумісності сигнатури.
     """
-    x_out = x.clone()
-    n = x.shape[0]
-    device = x.device
+    x_out = x.clone()  # копія, щоб не змінювати вхідний батч "на місці"
+    n = x.shape[0]     # кількість зображень у батчі
+    device = x.device  # усі нові тензори створюємо на тому ж пристрої (CPU/GPU/MPS)
 
     # Для кожного зображення в батчі окремо вирішуємо, застосовувати шум чи ні.
+    # torch.rand дає U(0,1); порівняння "< p" дає True з ймовірністю p.
+    # apply_mask — булевий вектор shape (n,).
     apply_mask = torch.rand(n, device=device, generator=None) < p
     if apply_mask.any():
         # Кожне зображення отримує СВОЄ випадкове sigma з діапазону
         sigmas = torch.empty(n, device=device).uniform_(sigma_low, sigma_high)
         noise = torch.randn_like(x)  # N(0, 1) шум тієї ж форми, що й x
         sigmas = sigmas.view(-1, 1, 1, 1)  # broadcast sigma на всі пікселі/канали
+        # Множення N(0,1) на sigma дає N(0, sigma^2); mu=0, тож зсуву немає.
         noisy = x + noise * sigmas
+        # Замінюємо на зашумлені лише ті зображення, де apply_mask == True;
+        # решта лишаються точними копіями оригіналу.
         x_out[apply_mask] = noisy[apply_mask]
 
+    # Шум може вивести пікселі за межі [0, 1] -> обрізаємо до валідного діапазону.
     return torch.clamp(x_out, 0.0, 1.0)

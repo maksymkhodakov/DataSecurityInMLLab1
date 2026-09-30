@@ -37,13 +37,15 @@ def load_model(checkpoint_path, device):
       - "classes": список назв класів (WordNet ID папок imagenet-10),
         порядок = порядок вихідних нейронів моделі (важливо для argmax -> label).
     """
+    # map_location=device: тензори одразу завантажуються на поточний пристрій,
+    # навіть якщо checkpoint зберігався на іншому (напр. CUDA -> MPS/CPU).
     ckpt = torch.load(checkpoint_path, map_location=device)
     classes = ckpt["classes"]
     # pretrained=False: ваги backbone все одно перезапишуться з checkpoint,
     # тому завантажувати їх з інтернету тут не потрібно (швидше і працює офлайн).
     model = build_model(num_classes=len(classes), pretrained=False).to(device)
     model.load_state_dict(ckpt["model_state"])
-    model.eval()  # вимикає dropout/batchnorm-статистику -> детерміновані передбачення
+    model.eval()  # BatchNorm використовує збережену (running) статистику -> детерміновані передбачення
     return model, classes
 
 
@@ -71,7 +73,7 @@ def accuracy_fgsm(model, loader, device, eps):
 
     Важливо: fgsm_attack() сам рахує градієнт loss відносно входу x
     (потребує requires_grad), тому виклик НЕ обгорнутий у torch.no_grad() —
-    но_grad вмикається лише під час самого forward-pass для передбачення
+    no_grad вмикається лише під час самого forward-pass для передбачення
     вже атакованого x_adv.
     """
     correct, total = 0, 0
@@ -99,7 +101,7 @@ def accuracy_noise(model, loader, device, sigma_low, sigma_high, p, trials=3):
     замовчуванням 3) з різними випадковими шумами і усереднюється, щоб
     результат не залежав від одного випадкового "щасливого"/"невдалого" прогону.
     """
-    accs = []
+    accs = []  # точність кожного окремого прогону
     for _ in range(trials):
         correct, total = 0, 0
         with torch.no_grad():
@@ -140,6 +142,8 @@ def find_break_eps(eps_values, accs, num_classes, random_thresh_factor=1.5, half
 
     eps_break_random = None
     eps_break_half = None
+    # Йдемо по eps у порядку зростання і фіксуємо ПЕРШЕ значення, де
+    # виконується кожна з умов (подальші значення вже не перезаписують його).
     for e, a in zip(eps_values, accs):
         if eps_break_half is None and a < half_thresh * clean_acc:
             eps_break_half = e
@@ -158,10 +162,12 @@ def main(args):
         args.data_root, batch_size=args.batch_size, val_fraction=args.val_fraction,
         seed=args.seed, num_workers=args.workers,
     )
+    # classes перезаписується списком із checkpoint — саме він відповідає
+    # порядку виходів моделі (порядок з датасету має бути тим самим).
     model, classes = load_model(args.checkpoint, device)
     num_classes = len(classes)
 
-    results = {}
+    results = {}  # усі метрики, які потім зберігаються в eval_results.json
 
     # --- 1) Базова (чиста) точність ---
     clean_acc = accuracy_clean(model, val_loader, device)
@@ -223,13 +229,19 @@ def main(args):
 
 def parse_args():
     p = argparse.ArgumentParser()
+    # Шлях до датасету (той самий, що використовувався в train.py)
     p.add_argument("--data-root", type=str, default="imagenet-10")
+    # Файл з вагами моделі, збережений train.py
     p.add_argument("--checkpoint", type=str, default="src/runs/exp1/best_model.pt")
+    # Куди зберегти eval_results.json і fgsm_sweep.png
     p.add_argument("--out-dir", type=str, default="src/runs/exp1")
     p.add_argument("--batch-size", type=int, default=32)
+    # val-fraction і seed ОБОВ'ЯЗКОВО мають збігатися з train.py — інакше
+    # валідаційний набір буде іншим і може містити тренувальні зображення.
     p.add_argument("--val-fraction", type=float, default=0.15)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--workers", type=int, default=4)
+    # Скільки разів повторювати оцінку під випадковим шумом для усереднення
     p.add_argument("--noise-trials", type=int, default=3)
     # Список значень eps для sweep. Нелінійна сітка: густіша в "цікавому"
     # низькому діапазоні (0..16/255, де зазвичай і відбувається злам

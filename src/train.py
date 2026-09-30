@@ -49,21 +49,28 @@ def get_device():
 
 def evaluate_clean(model, loader, device):
     """Точність на оригінальних (без атак) зображеннях — контроль базової якості."""
+    # eval-режим: BatchNorm використовує накопичену (running) статистику,
+    # а не статистику поточного батчу -> передбачення детерміновані.
     model.eval()
     correct, total = 0, 0
-    with torch.no_grad():
+    with torch.no_grad():  # градієнти не потрібні -> менше пам'яті, швидше
         for x, y in loader:
             x, y = x.to(device), y.to(device)
+            # argmax по осі класів: індекс найбільшого логіта = передбачений клас
             preds = model(x).argmax(dim=1)
-            correct += (preds == y).sum().item()
-            total += y.size(0)
+            correct += (preds == y).sum().item()  # кількість правильних у батчі
+            total += y.size(0)                    # розмір батчу
     return correct / total
 
 
 def evaluate_fgsm_quick(model, loader, device, eps):
     """Швидка перевірка FGSM-стійкості в кінці кожної епохи (одне фіксоване
     значення eps = args.eps_max, а не повний sweep — повний sweep з багатьма
-    eps робить evaluate.py окремо, після тренування)."""
+    eps робить evaluate.py окремо, після тренування).
+
+    Модель тут уже в eval-режимі (його вмикає evaluate_clean, що викликається
+    перед цією функцією в train()).
+    """
     correct, total = 0, 0
     for x, y in loader:
         x, y = x.to(device), y.to(device)
@@ -92,21 +99,28 @@ def train(args):
     # ResNet-18, попередньо натренована на ImageNet-1k (pretrained=True),
     # з заміненим останнім шаром на 10 виходів (кількість класів imagenet-10).
     model = build_model(num_classes=len(classes), pretrained=True).to(device)
+    # AdamW — Adam з "розв'язаним" weight decay (L2-регуляризація ваг, що
+    # стримує перенавчання). Тренуються ВСІ шари (повний fine-tuning), а не
+    # лише новий fc-шар.
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
+    # Cosine annealing: learning rate плавно зменшується від lr до ~0 за
+    # args.epochs епох по косинусоїді — великі кроки на початку, дрібне
+    # "доточування" ваг наприкінці.
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    best_score = -1.0
+    best_score = -1.0  # найкращий комбінований score серед усіх епох (див. нижче)
     for epoch in range(1, args.epochs + 1):
-        model.train()
+        model.train()  # train-режим: BatchNorm оновлює running-статистику
         t0 = time.time()
         running_loss = 0.0
 
         for step, (x, y) in enumerate(train_loader):
             x, y = x.to(device), y.to(device)
 
+            # Обнуляємо градієнти з попереднього кроку (PyTorch їх накопичує).
             optimizer.zero_grad()
 
             # --- Гілка 1: clean loss (завжди рахується) ---
@@ -131,17 +145,24 @@ def train(args):
                 # eps на тренуванні НЕ фіксований, а випадковий на кожному
                 # кроці: U(eps_min, eps_max) = U(2/255, 8/255) за замовчуванням.
                 # Це стандартний прийом (random eps) — робить модель стійкою
-                # до ДІАПАЗОНУ силу атаки, а не тільки до одного конкретного eps.
-                model.eval()  # атака будується без dropout/BN-шуму в forward
+                # до ДІАПАЗОНУ сили атаки, а не тільки до одного конкретного eps.
+                # eval() на час побудови атаки: BatchNorm бере running-статистику
+                # і НЕ оновлює її на цьому допоміжному forward-pass (інакше
+                # статистика BN "забруднювалась" би ще й атакуючими прикладами).
+                model.eval()
                 train_eps = torch.empty(1).uniform_(args.eps_min, args.eps_max).item()
                 x_adv = fgsm_attack(model, x_noisy, y, eps=train_eps)
-                model.train()
+                model.train()  # повертаємось у train-режим для самого кроку навчання
                 loss = loss + args.w_adv * F.cross_entropy(model(x_adv), y)
 
+            # Один backward по СУМАРНОМУ loss: градієнти всіх трьох гілок
+            # складаються (з вагами w_*), і optimizer робить один крок.
+            # x_adv створено через .detach(), тож градієнт не "протікає" назад
+            # через саму атаку — вона для оптимізатора просто фіксований вхід.
             loss.backward()
             optimizer.step()
 
-            running_loss += loss.item()
+            running_loss += loss.item()  # .item() -> Python float (без графа обчислень)
 
             if (step + 1) % args.log_every == 0:
                 print(f"epoch {epoch} step {step+1}/{len(train_loader)} "
@@ -150,7 +171,7 @@ def train(args):
             if args.max_steps and (step + 1) >= args.max_steps:
                 break  # лише для дебагу/швидкого smoke-тесту, за замовчуванням вимкнено (0)
 
-        scheduler.step()
+        scheduler.step()  # оновлюємо learning rate раз на епоху
 
         # --- Валідація в кінці епохи ---
         clean_acc = evaluate_clean(model, val_loader, device)
@@ -165,12 +186,14 @@ def train(args):
               f"time={dt:.1f}s")
 
         # Модель, що потрапляє в best_model.pt, обирається за комбінованим
-        # критерієм (60/50 балансу clean/adv), а не лише за clean-точністю —
+        # критерієм (50/50 баланс clean/adv), а не лише за clean-точністю —
         # інакше найкращою могла б вважатись epoch, де модель "забула" про
         # робастність заради +1% чистої точності.
         score = 0.5 * clean_acc + 0.5 * adv_acc
         if score > best_score:
             best_score = score
+            # Зберігаємо не лише ваги, а й метадані: classes потрібні
+            # evaluate.py, щоб відновити модель з правильною кількістю виходів.
             torch.save({
                 "model_state": model.state_dict(),
                 "classes": classes,
@@ -191,14 +214,22 @@ def train(args):
 
 def parse_args():
     p = argparse.ArgumentParser()
+    # Шлях до датасету у форматі ImageFolder (root/<клас>/<файл>.jpg)
     p.add_argument("--data-root", type=str, default="imagenet-10")
+    # Куди зберігати checkpoint-и (best_model.pt, last_model.pt)
     p.add_argument("--out-dir", type=str, default="src/runs/exp1")
+    # Кількість повних проходів по train-набору
     p.add_argument("--epochs", type=int, default=8)
     p.add_argument("--batch-size", type=int, default=32)
+    # Початковий learning rate (невеликий, бо fine-tuning pretrained ваг)
     p.add_argument("--lr", type=float, default=3e-4)
+    # Частка кожного класу, що йде у валідацію (має збігатись з evaluate.py)
     p.add_argument("--val-fraction", type=float, default=0.15)
+    # Seed для split і перемішування (має збігатись з evaluate.py)
     p.add_argument("--seed", type=int, default=42)
+    # Кількість процесів DataLoader для завантаження зображень
     p.add_argument("--workers", type=int, default=4)
+    # Як часто (у кроках) друкувати поточний середній loss
     p.add_argument("--log-every", type=int, default=20)
     # Діапазон eps, з якого випадково обирається сила FGSM-атаки на кожному
     # тренувальному кроці (не єдине фіксоване значення — див. коментар вище).
